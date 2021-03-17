@@ -1,0 +1,3 @@
+# This is a requirements file for simplefire
+pandas
+numpy
