@@ -28,7 +28,7 @@ version_file = here / PACKAGE_NAME / "version.py"
 # --- get version
 with version_file.open() as fi:
     for line in fi.readlines():
-        if not line.startswith('__'):
+        if not line.startswith("__"):
             continue
         content = line.split("=")[-1].strip()
         __version__ = content.replace('"', "").replace("'", "")

@@ -8,7 +8,6 @@ import pandas as pd
 import numpy as np
 
 
-
 st.set_page_config(
     page_title="simplefire",
     page_icon=None,
@@ -18,8 +17,6 @@ st.set_page_config(
 
 
 st.title("SimpleFire")
-
-
 
 
 st.header("Small examples")
