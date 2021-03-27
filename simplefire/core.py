@@ -5,12 +5,11 @@ Core functions for computing financial stats.
 from typing import Sequence
 from typing_extensions import Literal
 
-
 import numpy as np
 import pandas as pd
 from pydantic.dataclasses import dataclass
 
-from simplefire.utils import get_year_index, get_increasing_df
+from simplefire.utils import get_year_index, get_increasing_df, read_data
 
 filling_types = Literal["single", "married", "head_of_household"]
 
@@ -106,8 +105,11 @@ class Household:
         ages = np.stack(age_list).T
         # get years credit is good
         claimable = ages <= self._max_age
-        credit_by_year = claimable.sum(axis=1)
+        credit_by_year = pd.Series(claimable.sum(axis=1), index=index)
+        allowable_tax_credit = read_data('child_tax_credit', index=index)
+        child_tax_credit = credit_by_year * allowable_tax_credit
 
+        # read in
         breakpoint()
 
 

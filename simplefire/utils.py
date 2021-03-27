@@ -8,9 +8,9 @@ from simplefire.constants import _data_path
 
 def get_year_index(start_year="now", year_count=50) -> pd.Index:
     """Return a pandas index for years from start to max_years"""
-
-    start = pd.Timestamp(start_year)
-    index = pd.date_range(str(start.year), str(start.year + year_count), freq="Y")
+    start = pd.Timestamp(start_year).year
+    years = np.arange(start, start + year_count)
+    index = pd.Index(years, name='year')
     return index
 
 
@@ -25,7 +25,26 @@ def get_increasing_df(index, start_value, annual_increase):
     return pd.Series(income, index=index)
 
 
-def read_data(data_type: str, status=None):
+def extrapolate_to_index(df, index):
+    """
+    Extrapolates rows to annual index.
+
+    If no information is present for a given year use the closest year in
+    the past for which data is available,
+    """
+    if 'year' in df.columns:
+        df = df.set_index('year')
+    out = pd.DataFrame(index=index, columns=df.columns)
+    out.update(df)
+    out = (
+        pd.concat([df, out], axis=0)
+        .sort_index()
+        .fillna(method='ffill')
+    ).loc[index]
+    return out
+
+
+def read_data(data_type: str, status=None, index=None):
     """
     Read one of the dataframes containing tax information.
 
@@ -35,7 +54,8 @@ def read_data(data_type: str, status=None):
         The type of data to read
     status
         The filing status, if needed.
-
+    index
+        A pandas index of years to extrapolate data, optional.
     Returns
     -------
 
@@ -55,4 +75,7 @@ def read_data(data_type: str, status=None):
     if not path.exists():
         msg = f"{data_type} / {status} is not a valid dataset combination!"
         raise FileNotFoundError(msg)
-    return pd.read_csv(path)
+    df = pd.read_csv(path)
+    if index is not None:
+        df = extrapolate_to_index(df, index)
+    return df
