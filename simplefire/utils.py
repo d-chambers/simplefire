@@ -10,7 +10,7 @@ def get_year_index(start_year="now", year_count=50) -> pd.Index:
     """Return a pandas index for years from start to max_years"""
     start = pd.Timestamp(start_year).year
     years = np.arange(start, start + year_count)
-    index = pd.Index(years, name='year')
+    index = pd.Index(years, name="year")
     return index
 
 
@@ -32,15 +32,13 @@ def extrapolate_to_index(df, index):
     If no information is present for a given year use the closest year in
     the past for which data is available,
     """
-    if 'year' in df.columns:
-        df = df.set_index('year')
+    if index is None:
+        return df
+    if "year" in df.columns:
+        df = df.set_index("year")
     out = pd.DataFrame(index=index, columns=df.columns)
     out.update(df)
-    out = (
-        pd.concat([df, out], axis=0)
-        .sort_index()
-        .fillna(method='ffill')
-    ).loc[index]
+    out = (pd.concat([df, out], axis=0).sort_index().fillna(method="ffill")).loc[index]
     return out
 
 
@@ -66,7 +64,7 @@ def read_data(data_type: str, status=None, index=None):
         assert status is not None, f"you must specify status for {data_type}"
         path = maybe_dir / f"{status}.csv"
         if path.exists():
-            return pd.read_csv(path)
+            return extrapolate_to_index(pd.read_csv(path), index=index)
     # data is a csv independent of filing status
     if not data_type.endswith(".csv"):
         data_type = data_type + ".csv"
@@ -75,7 +73,4 @@ def read_data(data_type: str, status=None, index=None):
     if not path.exists():
         msg = f"{data_type} / {status} is not a valid dataset combination!"
         raise FileNotFoundError(msg)
-    df = pd.read_csv(path)
-    if index is not None:
-        df = extrapolate_to_index(df, index)
-    return df
+    return extrapolate_to_index(pd.read_csv(path), index=index)

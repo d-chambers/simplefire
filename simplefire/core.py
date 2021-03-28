@@ -14,14 +14,6 @@ from simplefire.utils import get_year_index, get_increasing_df, read_data
 filling_types = Literal["single", "married", "head_of_household"]
 
 
-def get_tax_brackets():
-    """
-    Return a dataframe with tax brackets for a given year.
-
-    Use the most recent year if year-specific data are not included.
-    """
-
-
 @dataclass()
 class Income:
     """
@@ -104,24 +96,45 @@ class Household:
         age_list = [np.arange(x, x + len(index)) for x in self.children_age]
         ages = np.stack(age_list).T
         # get years credit is good
-        claimable = ages <= self._max_age
+        claimable = (ages <= self._max_age).astype(bool)
         credit_by_year = pd.Series(claimable.sum(axis=1), index=index)
-        allowable_tax_credit = read_data('child_tax_credit', index=index)
+        allowable_tax_credit = read_data("child_tax_credit", index=index)["amount"]
         child_tax_credit = credit_by_year * allowable_tax_credit
+        deduction = read_data("standard_deduction", status=self.status, index=index)
+        out = pd.DataFrame(index=index)
+        out["child_tax_credit"] = child_tax_credit
+        out["deduction"] = deduction
+        return out
 
-        # read in
-        breakpoint()
+
+@dataclass()
+class Investments:
+    """A class to keep track of investments."""
+
+    traditional_401k: float = 0.0
+    traditional_ira: float = 0.0
+    roth_401k: float = 0.0
+    roth_ira: float = 0.0
+    investment_growth: float = 4.0
 
 
 @dataclass()
 class FireCalculator:
     """
     A class to simulate your FIRE journey.
+
+    Parameters
+    ----------
+    income
+        Yearly pre-tax income
+    spending
+        Yearly spending
     """
 
     income: Income
     spending: Spending
-    kids: int = 2
+    household: Household
+
     investment_growth_percent: float = 7.0
     draw_down_percent: float = 4.0
     traditional_401_balance = 0
