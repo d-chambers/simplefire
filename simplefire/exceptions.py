@@ -1,6 +1,8 @@
 """
 Custom exceptions
 """
+
+
 class ContributuionLimitsExceeded(ValueError):
     """Raised when contribution limits are exceeded."""
 

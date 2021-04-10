@@ -48,6 +48,7 @@ class Income:
         )
         return pd.Series(income, index=index)
 
+
 #
 # @dataclass()
 # class Spending:
@@ -118,7 +119,7 @@ class Household:
         Return a datafarme of the amount of w2 that can be earned without
         paying taxes
         """
-        tax_rate_df = read_data('income', status=self.status)
+        tax_rate_df = read_data("income", status=self.status)
         mod = self.get_household_modifier_df()
         breakpoint()
 
@@ -126,9 +127,10 @@ class Household:
 @dataclass
 class Withdrawal:
     """A withdrawal from an investment account."""
+
     amount: float
     taxable_amount: float
-    tax_type: Literal['income', 'capital_gains']
+    tax_type: Literal["income", "capital_gains"]
 
 
 class Investment:
@@ -163,23 +165,22 @@ class Investment:
         If not NaN, the limit the employee (not employer) can make to the
         account.
     """
+
     pretax: bool = False
     captial_gains: bool = False
     taxfree: bool = False
     convertible: bool = False
     contribution_limit: float = np.NaN
-    _columns = ('basis', 'start_balance', 'end_balance', 'contribution', 'gains')
+    _columns = ("basis", "start_balance", "end_balance", "contribution", "gains")
 
-    def __init__(
-            self, years, starting_balance=0, starting_basis=0,
-            annual_growth=4):
+    def __init__(self, years, starting_balance=0, starting_basis=0, annual_growth=4):
         self.df = pd.DataFrame(index=years, columns=list(self._columns))
-        self.df['contribution'] = 0
-        self.df['basis'] = 0
+        self.df["contribution"] = 0
+        self.df["basis"] = 0
         # set starting balance and basis
-        self.df.loc[years[0], 'start_balance'] = starting_balance
-        self.df.loc[years[0], 'basis'] = starting_basis
-        self.growth_rate = annual_growth / 100.
+        self.df.loc[years[0], "start_balance"] = starting_balance
+        self.df.loc[years[0], "basis"] = starting_basis
+        self.growth_rate = annual_growth / 100.0
 
     def contribute(self, amount, employee=True):
         """
@@ -196,14 +197,16 @@ class Investment:
             If false, the basis is not increased and no limits are enforced.
         """
         year = self.current_year
-        new_contrib = self.df.loc[year, 'contribution'] + amount
+        new_contrib = self.df.loc[year, "contribution"] + amount
         if employee and new_contrib > self.contribution_limit:
-            msg = (f"{new_contrib} exceeds contribution limit of "
-                   f"{self.contribution_limit}")
+            msg = (
+                f"{new_contrib} exceeds contribution limit of "
+                f"{self.contribution_limit}"
+            )
             raise ContributuionLimitsExceeded(msg)
-        self.df.loc[year, 'contribution'] = new_contrib
+        self.df.loc[year, "contribution"] = new_contrib
         if employee:
-            self.df.loc[year, 'basis'] += amount
+            self.df.loc[year, "basis"] += amount
 
     def close_year(self, year=None):
         """
@@ -215,8 +218,8 @@ class Investment:
             The year to close. Must have a start_balance.
         """
         year = year or self.current_year
-        start_balance = self.df.loc[year, 'start_balance']
-        contributions = self.df.loc[year, 'contribution']
+        start_balance = self.df.loc[year, "start_balance"]
+        contributions = self.df.loc[year, "contribution"]
         # raise if start balance is not yet determined
         if pd.isnull(start_balance):
             msg = f"starting balance for year {year} not yet calculated"
@@ -224,22 +227,22 @@ class Investment:
         # calculate gains and ending balance
         balance_gain = start_balance * self.growth_rate
         # contributions are assumed to be made at mid-year
-        contribution_gain = contributions * self.growth_rate / 2.
+        contribution_gain = contributions * self.growth_rate / 2.0
         gains = contribution_gain + balance_gain
         ending_balance = start_balance + gains + contributions
         # determine ending basis
-        self.df.loc[year, 'end_balance'] = ending_balance
-        self.df.loc[year, 'gains'] = gains
+        self.df.loc[year, "end_balance"] = ending_balance
+        self.df.loc[year, "gains"] = gains
         # set next years stats
         next_year = year + 1
         if next_year in self.df.index:
-            self.df.loc[next_year, 'start_balance'] = ending_balance
-            self.df.loc[next_year, 'basis'] = self.df.loc[year, 'basis']
+            self.df.loc[next_year, "start_balance"] = ending_balance
+            self.df.loc[next_year, "basis"] = self.df.loc[year, "basis"]
 
     def withdraw(
-            self,
-            amount,
-            strategy: Literal['basis', 'gains', 'balanced'] = 'balanced',
+        self,
+        amount,
+        strategy: Literal["basis", "gains", "balanced"] = "balanced",
     ) -> Withdrawal:
         """
         Withdraw money from an investment account.
@@ -257,19 +260,20 @@ class Investment:
                     their respective percentages of the account.
         """
         year = self.current_year
-        contrib = self.df.loc[year, 'contribution']
-        balance = self.df.loc[year, 'start_balance']
+        contrib = self.df.loc[year, "contribution"]
+        balance = self.df.loc[year, "start_balance"]
         funds = contrib + balance
         if (funds - amount) < 0:
-            msg = f'Cannot withdraw {amount} only {funds} available'
+            msg = f"Cannot withdraw {amount} only {funds} available"
             raise BalanceError(msg)
-        self.df.loc[year, 'basis'] = self._calc_new_basis(amount, strategy)
-        self.df.loc[year, 'contribution'] -= amount
+        self.df.loc[year, "basis"] = self._calc_new_basis(amount, strategy)
+        self.df.loc[year, "contribution"] -= amount
         # create/return withdrawal object
         Withdrawal(amount=amount)
 
     def _calc_new_basis(self, amount, strategy):
         """Determine the new basis after withdrawing."""
+
         def _balanced():
 
             pass
@@ -281,16 +285,16 @@ class Investment:
             pass
 
         year = self.current_year
-        start_balance = self.df.loc[year, 'start_balance']
-        start_basis = self.df.loc[year, 'basis']
-        contribution = self.df.loc[year, 'basis']
-        out = {'balanced': _balanced, 'basis': _basis, 'gains': _gains}
+        start_balance = self.df.loc[year, "start_balance"]
+        start_basis = self.df.loc[year, "basis"]
+        contribution = self.df.loc[year, "basis"]
+        out = {"balanced": _balanced, "basis": _basis, "gains": _gains}
         return out[strategy]()
 
     @property
     def current_year(self):
         """Return the current (non-closed) year."""
-        not_closed_index = self.df[self.df['end_balance'].isnull()].index
+        not_closed_index = self.df[self.df["end_balance"].isnull()].index
         return not_closed_index.min()
 
 
@@ -299,6 +303,7 @@ class Taxable(Investment):
     """
     A taxable investment account.
     """
+
     capital_gains = True
 
 
@@ -308,12 +313,8 @@ class TraditionalIRA(Investment):
     """
 
 
-
 class RothIRA(Investment):
-    """
-
-    """
-
+    """"""
 
 
 @dataclass()
@@ -336,6 +337,7 @@ class RetirementStrategy:
 
 class FireStrategy:
     """ A base class for calculating strategies."""
+
     def get_fire_plan(self) -> pd.DataFrame:
         """Return a dataframe with a fire plan."""
         # first get a
@@ -343,8 +345,6 @@ class FireStrategy:
         spending = self.household.get_spending_df()
         tax_free_income = self.household.get_tax_free_amount()
         breakpoint()
-
-
 
     def get_total_w2_incomes(self):
         """Returns a summed dataframe of potential w2 income."""
@@ -375,10 +375,12 @@ class FireCalculator:
     retirement_strategy
         Strategy for determining when retirement triggers
     """
+
     incomes: List[Income]
     household: Household
     investments: List[Investment]
     retirement_strategy: RetirementStrategy
+
 
 #
 #

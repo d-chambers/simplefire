@@ -85,7 +85,7 @@ class TestInvestments:
         """Ensure the Investments class can be created."""
         df = default_investment.df
         # no ending balances yet
-        assert pd.isnull(df['end_balance']).all()
+        assert pd.isnull(df["end_balance"]).all()
 
     def test_contribute(self, default_investment, year_index):
         """Ensure contributions can be made."""
@@ -93,15 +93,15 @@ class TestInvestments:
         default_investment.contribute(12_000)
         default_investment.close_year(year)
         ser = default_investment.df.loc[year]
-        assert ser['end_balance'] > ser['start_balance']
+        assert ser["end_balance"] > ser["start_balance"]
         # interest for contributions should also have been calculated
-        assert ser['end_balance'] > ser['contribution']
+        assert ser["end_balance"] > ser["contribution"]
         assert not pd.isnull(ser).all()
 
     def test_close_year(self, populated_investment):
         """Sanity tests on closing out a year"""
         df = populated_investment.df
-        increasing_columns = ['basis', 'start_balance', 'end_balance']
+        increasing_columns = ["basis", "start_balance", "end_balance"]
         for col in increasing_columns:
             shift = df[col].shift()
             gt = df[col] >= shift
@@ -112,7 +112,7 @@ class TestInvestments:
     def test_contribute_limit(self, default_investment):
         """Ensure contribution limits are enforced."""
         default_investment.contribution_limit = 18_000
-        with pytest.raises(ContributuionLimitsExceeded, match='exceeds'):
+        with pytest.raises(ContributuionLimitsExceeded, match="exceeds"):
             default_investment.contribute(1_000_000_000)
 
     def test_contribute_employer(self, default_investment):
@@ -123,7 +123,7 @@ class TestInvestments:
         default_investment.close_year()
         df = default_investment.df
         # the basis should not have increased
-        assert (df['basis'] == 0).all()
+        assert (df["basis"] == 0).all()
 
     def test_current_year(self, default_investment, year_index):
         """Test that the class keeps track of the year."""
@@ -141,11 +141,8 @@ class TestInvestments:
     def test_balanced_withdraw(self, populated_investment):
         """Ensure withdraws can be made on balances"""
         df1 = populated_investment.df
-        withdraw = populated_investment.withdraw(1_000, strategy='balanced')
+        withdraw = populated_investment.withdraw(1_000, strategy="balanced")
         df2 = populated_investment.df
-
-
-
 
         breakpoint()
         default_investment
@@ -173,6 +170,3 @@ class TestHousehold:
         """Get the amount of income-tax free income possible by year."""
         out = default_household.get_tax_free_amount()
         assert len(out)
-
-
-
