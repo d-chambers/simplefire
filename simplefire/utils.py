@@ -2,6 +2,7 @@
 Misc utilities for simplefire.
 """
 import numpy as np
+
 import pandas as pd
 from simplefire.constants import _data_path
 
@@ -74,3 +75,9 @@ def read_data(data_type: str, status=None, index=None):
         msg = f"{data_type} / {status} is not a valid dataset combination!"
         raise FileNotFoundError(msg)
     return extrapolate_to_index(pd.read_csv(path), index=index)
+
+
+def extend_df_to_years(df, years):
+    """
+    Extend a dataframe to include values in years extrapolate forward.
+    """
