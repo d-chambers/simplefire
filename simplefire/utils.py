@@ -81,3 +81,33 @@ def extend_df_to_years(df, years):
     """
     Extend a dataframe to include values in years extrapolate forward.
     """
+    year_set = set(df['year'])
+    df_years = df['year']
+    out = [df]
+    for year in years:
+        if year in year_set:
+            continue
+        closest_year = df_years[df_years < year].max()
+        sub = df[df['year'] == closest_year].copy()
+        sub['year'] = year
+        out.append(sub)
+    return pd.concat(out, ignore_index=True, axis=0)
+
+
+def tax_to_income(ser: pd.Series, tax_df: pd.DataFrame) -> pd.Series:
+    """
+    Calculate the income an amount of tax paid (or tax credit) covers.
+    """
+    tdf = extend_df_to_years(tax_df, ser.index)
+    for year in ser.index:
+        amount = ser[year]
+        sub = tdf[tdf['year'] == year]
+        bottom = sub['income'].shift().fillna(0)
+        top = sub['income']
+        size = top - bottom
+        tax = size * (sub['tax'] / 100.)
+        gt = tax > amount
+
+
+        breakpoint()
+

@@ -7,10 +7,8 @@ import pandas as pd
 
 from simplefire.utils import get_year_index
 from simplefire.core import (
-    FireCalculator,
     Income,
     Household,
-    RetirementStrategy,
     Investment,
 )
 from simplefire.exceptions import ContributuionLimitsExceeded, BalanceError
@@ -52,7 +50,7 @@ def default_income():
 
 @pytest.fixture()
 def default_household():
-    return Household(children_age=[1, 3], status="married")
+    return Household(children_age=(1, 3), status="married")
 
 
 # def fire_df(default_fire):
@@ -138,14 +136,25 @@ class TestInvestments:
         with pytest.raises(BalanceError):
             populated_investment.withdraw(5_000_000)
 
-    def test_balanced_withdraw(self, populated_investment):
+    def test_basis_withdraw(self, populated_investment):
         """Ensure withdraws can be made on balances"""
-        df1 = populated_investment.df
-        withdraw = populated_investment.withdraw(1_000, strategy="balanced")
-        df2 = populated_investment.df
+        current_year = populated_investment.current_year
+        ser1 = populated_investment.df.loc[current_year]
+        withdraw = populated_investment.withdraw(1_000, strategy="basis")
+        ser2 = populated_investment.df.loc[current_year]
+        assert withdraw.tax == 0
+        assert ser2['contribution'] == -withdraw.amount
+        assert (ser1['basis'] - ser2['basis']) == withdraw.amount
 
-        breakpoint()
-        default_investment
+    def test_gains_withdraw(self, populated_investment):
+        """Ensure gains can be withdrawn."""
+        current_year = populated_investment.current_year
+        ser1 = populated_investment.df.loc[current_year]
+        withdraw = populated_investment.withdraw(1_000, strategy="gains")
+        ser2 = populated_investment.df.loc[current_year]
+        assert withdraw.tax == withdraw.amount
+        assert ser2['contribution'] == -withdraw.amount
+        assert ser1['basis'] == ser2['basis']
 
 
 class TestHousehold:

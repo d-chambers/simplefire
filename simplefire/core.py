@@ -2,7 +2,7 @@
 Core functions for computing financial stats.
 """
 
-from typing import Sequence, List, Optional
+from typing import Sequence, List, Optional, Collection, Any, Union
 from typing_extensions import Literal
 from operator import add
 
@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 
 from simplefire.dataclasses import dataclass
-from simplefire.utils import get_year_index, get_increasing_df, read_data
+from simplefire.utils import get_year_index, get_increasing_df, read_data, extend_df_to_years, tax_to_income
 from simplefire.exceptions import ContributuionLimitsExceeded, BalanceError
 
 filling_types = Literal["single", "married", "head_of_household"]
@@ -80,17 +80,23 @@ class Household:
     """
 
     status: filling_types = "married"
-    children_age: Sequence[int] = ()
+    children_age: Collection[int] = ()
     annual_spending: float = 35_000
     annual_growth: float = 0.0
+    years: Optional[Union[Sequence[int], pd.Index]] = None
     _max_age = 18
+    _credits = ('child_tax_credit', )
 
-    def get_household_modifier_df(self, index=None):
+    def __post_init__(self):
+        if self.years is None:
+            self.years = get_year_index()
+
+    def get_household_modifier_df(self):
         """
         Get a dataframe of deductions, credits, and adjustments
         for this household by year.
         """
-        index = index if index is not None else get_year_index()
+        index = self.years
         age_list = [np.arange(x, x + len(index)) for x in self.children_age]
         ages = np.stack(age_list).T
         # get years credit is good
@@ -121,7 +127,17 @@ class Household:
         """
         tax_rate_df = read_data("income", status=self.status)
         mod = self.get_household_modifier_df()
-        breakpoint()
+        credits = mod[list(self._credits)].sum(axis=1)
+        return tax_to_income(credits, tax_rate_df)
+
+    def get_tax_df(self):
+        """
+        Return a tax dataframe which has been extended by years.
+        """
+        tax_rate_df = read_data("income", status=self.status)
+        tax_df = extend_df_to_years(tax_rate_df, self.years)
+        return tax_df
+
 
 
 @dataclass
@@ -129,7 +145,7 @@ class Withdrawal:
     """A withdrawal from an investment account."""
 
     amount: float
-    taxable_amount: float
+    tax: float
     tax_type: Literal["income", "capital_gains"]
 
 
@@ -266,27 +282,48 @@ class Investment:
         if (funds - amount) < 0:
             msg = f"Cannot withdraw {amount} only {funds} available"
             raise BalanceError(msg)
-        self.df.loc[year, "basis"] = self._calc_new_basis(amount, strategy)
+        new_basis, tax = self._calc_new_basis(amount, strategy)
         self.df.loc[year, "contribution"] -= amount
+        # modify tax based on account type
+        if self.taxfree:
+            tax = 0
+        elif self.pretax:
+            tax = amount
         # create/return withdrawal object
-        Withdrawal(amount=amount)
+        tax_type = 'capital_gains' if self.captial_gains else 'income'
+        self.df.loc[year, "basis"] = new_basis
+        return Withdrawal(amount=amount, tax=tax, tax_type=tax_type)
+
+    def _get_taxable(self, potential_tax):
+        """Return taxable amount based on """
 
     def _calc_new_basis(self, amount, strategy):
-        """Determine the new basis after withdrawing."""
-
+        """
+        Determine the new basis after withdrawing and potential taxable amount.
+        """
         def _balanced():
-
-            pass
+            raise NotImplementedError('Balanced is not yet implemented')
 
         def _basis():
-            pass
+            new = basis - amount
+            tax = 0
+            if new < 0:
+                tax = abs(new)
+                new = 0
+
+            return new, tax
 
         def _gains():
-            pass
+            gains = (start_balance + contribution) - basis
+            if gains > amount:
+                return basis, amount
+            else:  # not enough gains, reduce basis somewhat
+                new_balance = basis - (amount - gains)
+                return new_balance, gains
 
         year = self.current_year
         start_balance = self.df.loc[year, "start_balance"]
-        start_basis = self.df.loc[year, "basis"]
+        basis = self.df.loc[year, "basis"]
         contribution = self.df.loc[year, "basis"]
         out = {"balanced": _balanced, "basis": _basis, "gains": _gains}
         return out[strategy]()
@@ -317,25 +354,7 @@ class RothIRA(Investment):
     """"""
 
 
-@dataclass()
-class RetirementStrategy:
-    """
-    A class to specify retirement strategies.
-
-    Parameters
-    ----------
-    income_target_ratio
-        The ratio of a household's income which triggers retirement
-    years_employed
-        The total number of years of employment after which retirement
-        will be triggered.
-    """
-
-    income_target_ratio: Optional[float] = 1.00
-    years_employed: Optional[int] = None
-
-
-class FireStrategy:
+class Strategy:
     """ A base class for calculating strategies."""
 
     def get_fire_plan(self) -> pd.DataFrame:
@@ -358,28 +377,28 @@ class FireStrategy:
         breakpoint()
         breakpoint()
 
-
-@dataclass()
-class FireCalculator:
-    """
-    A class to simulate your FIRE journey.
-
-    Parameters
-    ----------
-    incomes
-        A list of income sources
-    household
-        Status of household
-    investments
-        Investments currently held
-    retirement_strategy
-        Strategy for determining when retirement triggers
-    """
-
-    incomes: List[Income]
-    household: Household
-    investments: List[Investment]
-    retirement_strategy: RetirementStrategy
+#
+# @dataclass()
+# class FireCalculator:
+#     """
+#     A class to simulate your FIRE journey.
+#
+#     Parameters
+#     ----------
+#     incomes
+#         A list of income sources
+#     household
+#         Status of household
+#     investments
+#         Investments currently held
+#     retirement_strategy
+#         Strategy for determining when retirement triggers
+#     """
+#
+#     incomes: List[Income]
+#     household: Household
+#     investments: List[Investment]
+#     retirement_strategy: RetirementStrategy
 
 
 #
