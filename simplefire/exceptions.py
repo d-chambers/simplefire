@@ -3,7 +3,7 @@ Custom exceptions
 """
 
 
-class ContributuionLimitsExceeded(ValueError):
+class ContributionLimitsExceeded(ValueError):
     """Raised when contribution limits are exceeded."""
 
 

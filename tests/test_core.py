@@ -3,6 +3,7 @@ Tests for simplefire's main functionality.
 """
 import pytest
 
+
 import pandas as pd
 
 from simplefire.utils import get_year_index
@@ -10,26 +11,10 @@ from simplefire.core import (
     Income,
     Household,
     Investment,
+    FamilyIncome,
+    TaxEvasionStrategy
 )
-from simplefire.exceptions import ContributuionLimitsExceeded, BalanceError
-
-#
-# @pytest.fixture()
-# def default_fire():
-#     """Return a happy path fire calculator."""
-#     household = Household(
-#         status="married",
-#         children_age=[2, 4],
-#         annual_spending=35_000,
-#     )
-#
-#     fc = FireCalculator(
-#         incomes=[Income(annual_income=75_000)],
-#         investments=Investments(),
-#         household=household,
-#         retirement_strategy=RetirementStrategy(income_target_ratio=1.00),
-#     )
-#     return fc
+from simplefire.exceptions import ContributionLimitsExceeded, BalanceError
 
 
 @pytest.fixture()
@@ -49,13 +34,27 @@ def default_income():
 
 
 @pytest.fixture()
+def default_family_income(default_income):
+    return FamilyIncome([default_income])
+
+
+@pytest.fixture()
 def default_household():
     return Household(children_age=(1, 3), status="married")
 
 
-# def fire_df(default_fire):
-#     """Return the default fire dataframe."""
-#     return default_fire.get_fire_plan()
+@pytest.fixture()
+def tax_evasion(default_household, default_family_income):
+    """Init a tax evasion object"""
+    return TaxEvasionStrategy(
+        household=default_household, family_income=default_family_income,
+    )
+
+
+@pytest.fixture()
+def fired_tax_evasion(tax_evasion):
+    tax_evasion.start_fire()
+    return tax_evasion
 
 
 class TestIncome:
@@ -66,6 +65,33 @@ class TestIncome:
 
     def test_generate_income_df(self, income_df):
         """Tests income dataframe."""
+
+
+class TestFamilyIncome:
+    """Tests for one or more income per family."""
+    @pytest.fixture()
+    def single_income(self):
+        """A family with a single income."""
+        income = Income()
+        return FamilyIncome([income])
+
+    @pytest.fixture()
+    def double_income(self):
+        """A family income with two incomes."""
+        income1 = Income()
+        income2 = Income(annual_income=60_000)
+        return FamilyIncome([income1, income2])
+
+    @pytest.fixture(params=['single_income', 'double_income'])
+    def family_income(self, request) -> FamilyIncome:
+        """meta fixture for gathering up incomes"""
+        return request.getfixturevalue(request.param)
+
+    def test_family_income_df(self, family_income):
+        """Tests for the df produced by income."""
+        out = family_income.get_df()
+        assert isinstance(out, pd.DataFrame)
+        assert (out['income'] > out['match']).all()
 
 
 class TestInvestments:
@@ -109,8 +135,9 @@ class TestInvestments:
 
     def test_contribute_limit(self, default_investment):
         """Ensure contribution limits are enforced."""
+        cdf = pd.DataFrame([[2021, 18_000]], columns=['year', 'amount'], )
         default_investment.contribution_limit = 18_000
-        with pytest.raises(ContributuionLimitsExceeded, match="exceeds"):
+        with pytest.raises(ContributionLimitsExceeded, match="exceeds"):
             default_investment.contribute(1_000_000_000)
 
     def test_contribute_employer(self, default_investment):
@@ -156,6 +183,19 @@ class TestInvestments:
         assert ser2['contribution'] == -withdraw.amount
         assert ser1['basis'] == ser2['basis']
 
+    def test_balance(self, populated_investment):
+        """Ensure the total balance can be easily queried."""
+        balance = populated_investment.balance
+        assert balance > 0
+        new = Investment(years=[2020, 2021])
+        assert new.balance == 0
+
+    def test_gains(self, populated_investment):
+        gains = populated_investment.gains
+        assert gains > 0
+        new = Investment(years=[2020, 2021])
+        assert new.gains == 0
+
 
 class TestHousehold:
     """Tests for household class."""
@@ -177,5 +217,26 @@ class TestHousehold:
 
     def test_taxfree_df(self, default_household):
         """Get the amount of income-tax free income possible by year."""
-        out = default_household.get_tax_free_amount()
+        out = default_household.get_tax_free_series()
+        assert ((out > 20_000) & (out < 70_000)).all()
         assert len(out)
+
+
+class TestTaxEvasionStrategy:
+    """Tests for tax evasion fire strategy."""
+
+    def test_fire(self, fired_tax_evasion):
+        """Test fire simulation."""
+        roth_df = fired_tax_evasion.roth_ira.df
+        # ensure roth is filled out
+        assert not roth_df.isnull().any().any()
+
+
+class TestPlotTaxEvasionStrategy:
+    """Tests for plotting tax evasion strategies."""
+
+    def test_plot_fire(self, fired_tax_evasion, tmp_path):
+        fired_tax_evasion.plot_yearly_table(tmp_path)
+
+
+

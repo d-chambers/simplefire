@@ -1,4 +1,4 @@
-year,income,tax
+year,amount,tax_percent
 2020,19750,10
 2020,80250,12
 2020,171050,22

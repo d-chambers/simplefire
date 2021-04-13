@@ -8,7 +8,7 @@ from pydantic.dataclasses import dataclass
 class Config:
     """Config for base model."""
 
-    extra = "forbid"
+    extra = "allow"
     validate_assignment = True
     arbitrary_types_allowed = True
 
